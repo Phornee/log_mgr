@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="log_mgr",
-    version="0.0.1",
+    version="0.0.2",
     author="Ismael Raya",
     author_email="phornee@gmail.com",
     description="Utility class for logging with handlers included",

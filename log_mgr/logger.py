@@ -1,6 +1,7 @@
 """ Logger management """
 import os
 import sys
+import shutil
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -27,7 +28,17 @@ class Logger():
                  log_file_name: str,
                  mode: LoggerMode = LoggerMode.FILE,
                  level=logging.INFO,
-                 utc: bool = False):
+                 utc: bool = False,
+                 dry_run: bool = False):
+        """ Init of the class
+        Args:
+            package_name (str): Root package name, to put the logs into the right /var/log/ subfolder
+            log_file_name (str): Log file name. Just the name of the file itself
+            mode (LoggerMode, optional): 
+            level (_type_, optional): Logging level to be used for all handlers
+            utc (bool, optional): _description_. Defaults to False.
+            dry_run (bool, optional): _description_. Defaults to False.
+        """
         self.log_file_name = log_file_name
 
         self.homevar = os.path.join(str(Path.home()), 'var', 'log', package_name)
@@ -36,7 +47,20 @@ class Logger():
         if not os.path.exists(self.homevar):
             os.makedirs(self.homevar)
 
+        if dry_run:
+            self.dry_run = True
+            self.homevar = os.path.join(self.homevar, 'dryrun_log')
+            if not os.path.exists(self.homevar):
+                os.makedirs(self.homevar)
+        else:
+            self.dry_run = False
+
         self.setup_logger(mode, level, utc)
+
+    def __del__(self):
+        logging.shutdown() # Shutdown logger, otherwise we cannot rmtree because files are still opened
+        if self.dry_run and os.path.exists(self.homevar):
+            shutil.rmtree(self.homevar)
 
     def get_log_path(self) -> str:
         """ Returns the log path based on the homevar folder and the log file name specified"""
@@ -55,13 +79,13 @@ class Logger():
             formatter = logging.Formatter('%(asctime)s-%(message)s', '%Y-%m-%d %H:%M:%S')
 
         # Create rotating file handler
-        if mode in [LoggerMode.FILE, mode.BOTH]:
+        if mode in [LoggerMode.FILE, LoggerMode.BOTH]:
             file_handler = RotatingFileHandler(self.get_log_path(), maxBytes=10000, backupCount=10)
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
 
         # Create stdout stream handler
-        if mode in [LoggerMode.STD, mode.BOTH]:
+        if mode in [LoggerMode.STD, LoggerMode.BOTH]:
             stream_handler = logging.StreamHandler(sys.stdout)
             stream_handler.setFormatter(formatter)
             self.logger.addHandler(stream_handler)
