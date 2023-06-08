@@ -23,9 +23,14 @@ class UTCFormatter(logging.Formatter):
 
 
 class Logger():
-    """ Logger class with builtin handler configuration"""
+    """ Logger class with builtin handler configuration. 
+        Must be used only from the root application to define the handlers and other parameters
+        In the inner libraries logging.getLogger() should be used.
+        Also can be used by inner libraries, if they want for some reason a different log configuration or handlers.
+        """
     def __init__(self, package_name: str,
                  log_file_name: str,
+                 log_name: str = None,
                  mode: LoggerMode = LoggerMode.FILE,
                  level=logging.INFO,
                  utc: bool = False,
@@ -55,28 +60,37 @@ class Logger():
         else:
             self.dry_run = False
 
-        self.setup_logger(mode, level, utc)
+        self.setup_logger(log_name, mode, level, utc)
 
     def __del__(self):
         logging.shutdown() # Shutdown logger, otherwise we cannot rmtree because files are still opened
         if self.dry_run and os.path.exists(self.homevar):
             shutil.rmtree(self.homevar)
 
+    def __getattr__(self, name):
+        """ Inherits and delegates all the functions from logging.logger (i.e. info, debug, warning, error methods)
+        Args:
+            name (str): Name of the property to be delegated
+        Returns:
+            _type_: The delegated result
+        """
+        return getattr(self.logger, name)
+
     def get_log_path(self) -> str:
         """ Returns the log path based on the homevar folder and the log file name specified"""
         return os.path.join(self.homevar, f"{self.log_file_name}.log")
 
-    def setup_logger(self, mode: LoggerMode, level, utc: bool):
+    def setup_logger(self, log_name: str, mode: LoggerMode, level, utc: bool):
         """ Setup the selected mode, that means which builtin handlers will be added to the logger """
-        self.logger = logging.getLogger(f'{self.package_name}_{self.log_file_name}_log')
+        self.logger = logging.getLogger(log_name)
 
         if not os.path.exists(self.homevar):
             os.mkdir(self.homevar)
 
         if utc:
-            formatter = UTCFormatter('%(asctime)s-%(message)s', '%Y-%m-%d %H:%M:%S')
+            formatter = UTCFormatter('%(asctime)s-%(filename)s-%(message)s', '%Y-%m-%d %H:%M:%S')
         else:
-            formatter = logging.Formatter('%(asctime)s-%(message)s', '%Y-%m-%d %H:%M:%S')
+            formatter = logging.Formatter('%(asctime)s-%(filename)s-%(message)s', '%Y-%m-%d %H:%M:%S')
 
         # Create rotating file handler
         if mode in [LoggerMode.FILE, LoggerMode.BOTH]:
@@ -107,19 +121,3 @@ class Logger():
         """ Get log file content split in lines"""
         with open(self.get_log_path(), 'r', encoding='UTF-8') as file:
             return file.readlines()
-
-    def info(self, message: str):
-        """ Outputs a info log """
-        self.logger.info(message)
-
-    def debug(self, message: str):
-        """ Outputs a debug log """
-        self.logger.debug(message)
-
-    def warning(self, message: str):
-        """ Outputs a warning log """
-        self.logger.warning(message)
-
-    def error(self, message: str):
-        """ Outputs an error log """
-        self.logger.error(message)

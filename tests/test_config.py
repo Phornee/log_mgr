@@ -28,7 +28,7 @@ class Testing(unittest.TestCase):
 
         self.assertEqual(len(content), 1)
 
-        skip_date = content[0][20:].rstrip()
+        skip_date = content[0].rstrip()[-12:]
         self.assertEqual(skip_date, 'info message')
 
 if __name__ == "__main__":
